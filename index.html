@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우리교실, 토론앱</title>
+<meta name="description" content="팀 랜덤 배정부터 토론 진행, 토론 기록 저장, AI 피드백, 생기부 초안까지. 교실 토론 수업을 한 번에 돕는 Windows용 토론 앱.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="우리교실, 토론앱">
+<meta property="og:description" content="팀 랜덤 배정부터 토론 진행, 토론 기록 저장, AI 피드백, 생기부 초안까지. 교실 토론 수업을 한 번에 돕는 Windows용 토론 앱.">
+<meta property="og:image" content="img/student-pc.webp">
+<meta name="theme-color" content="#152c25">
+<link rel="icon" type="image/png" href="img/icon.png">
+<link rel="apple-touch-icon" href="img/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Nanum+Pen+Script&display=swap">
+<style>
+  html { -webkit-text-size-adjust: 100%; } body { margin: 0; } img { max-width: 100%; } [hidden] { display: none !important; }
+  /* Layout: 칠판 띠(첫 화면) + 모눈 노트 바탕(본문) · 1080px 한 줄 기둥 · 첫 화면은 글(왼쪽) / 체스 시계 칠판(오른쪽) */
+  :root {
+    --paper: #f3f6f4;        /* 모눈 노트 바탕 (초록빛이 살짝 도는 흰색) */
+    --grid: rgba(29, 58, 49, .07);
+    --ink: #17231e;
+    --muted: #55665e;
+    --card: #ffffff;
+    --rule: #d6e0db;
+    --board: #1d3a31;        /* 칠판 */
+    --board-deep: #152c25;
+    --chalk: #eef4ec;
+    --chalk-dim: rgba(238, 244, 236, .66);
+    --wood: #b98a5a;         /* 칠판 테두리 나무 */
+    --accent: #ff8a1f;       /* 앱의 주황 버튼 */
+    --accent-ink: #2b1500;
+    --pro: #e2574c;          /* 찬성 */
+    --pro-soft: #fde8e6;
+    --con: #3a6fd1;          /* 반대 */
+    --con-soft: #e5edfb;
+    --ok: #2f8f5b;
+    --f-display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --f-chalk: "Nanum Pen Script", "IBM Plex Sans KR", cursive;
+    --wrap: 1080px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #101815; --grid: rgba(238, 244, 236, .045); --ink: #e7eee9; --muted: #9db0a7; --card: #17221d; --rule: #2a3a33;
+      --board: #173129; --board-deep: #0f231d; --chalk: #eef4ec; --chalk-dim: rgba(238, 244, 236, .62); --wood: #8a6643;
+      --accent: #ff9a3d; --accent-ink: #2b1500; --pro: #f0766c; --pro-soft: #3a1f1d; --con: #6d97ec; --con-soft: #1b2740; --ok: #5cc28a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101815; --grid: rgba(238, 244, 236, .045); --ink: #e7eee9; --muted: #9db0a7; --card: #17221d; --rule: #2a3a33;
+    --board: #173129; --board-deep: #0f231d; --chalk: #eef4ec; --chalk-dim: rgba(238, 244, 236, .62); --wood: #8a6643;
+    --accent: #ff9a3d; --accent-ink: #2b1500; --pro: #f0766c; --pro-soft: #3a1f1d; --con: #6d97ec; --con-soft: #1b2740; --ok: #5cc28a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background-color: var(--paper);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere;
+  }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--board-deep); }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  p { margin: 0; }
+  .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .08em; color: var(--accent); }
+
+  /* ── 머리 ── */
+  .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--board-deep); color: var(--chalk); border-bottom: 1px solid rgba(238, 244, 236, .08); }
+  .top .wrap { display: flex; align-items: center; gap: 16px; padding-block: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--f-display); font-size: 21px; letter-spacing: .01em; white-space: nowrap; }
+  .brand img { width: 34px; height: 34px; border-radius: 9px; }
+  .nav { display: flex; gap: 22px; margin-left: auto; font-size: 14.5px; font-weight: 500; }
+  .nav a { text-decoration: none; color: var(--chalk-dim); } .nav a:hover { color: var(--chalk); }
+  .top .btn-sm { margin-left: 8px; }
+  @media (max-width: 760px) { .nav { display: none; } .top .btn-sm { margin-left: auto; } }
+
+  /* ── 버튼 ── */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 0; cursor: pointer; text-decoration: none; font: 700 17px/1 var(--f-body);
+         padding: 17px 26px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 55%, #000); transition: transform .12s, box-shadow .12s; }
+  .btn:hover { transform: translateY(-1px); } .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, #000); }
+    .btn svg { width: 20px; height: 20px; flex: none; }
+  .btn-sm { font-size: 14px; padding: 9px 14px; border-radius: 9px; box-shadow: none; }
+  .link-under { color: var(--chalk); font-weight: 600; font-size: 15.5px; text-decoration: none; border-bottom: 1.5px solid var(--chalk-dim); padding-bottom: 3px; }
+  .link-under:hover { border-color: var(--chalk); }
+
+  /* ── 첫 화면: 칠판 띠 ── */
+  .hero { background: radial-gradient(1200px 500px at 80% -10%, color-mix(in srgb, var(--board) 70%, #3c6b5c), var(--board) 55%, var(--board-deep)); color: var(--chalk); position: relative; overflow: hidden; }
+  .hero::after { content: ""; position: absolute; inset: auto 0 0; height: 14px; background: linear-gradient(var(--wood), color-mix(in srgb, var(--wood) 70%, #000)); }
+  .hero .wrap { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 48px; align-items: center; padding-block: 64px 86px; }
+  .hero .eyebrow { color: color-mix(in srgb, var(--accent) 85%, #fff); display: inline-flex; align-items: center; gap: 8px; }
+  .hero .eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .hero h1 { font-family: var(--f-display); font-weight: 400; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.2; margin-top: 18px; letter-spacing: -.005em; }
+  .hero h1 .ln { display: inline-block; }
+  .hero h1 .hl { color: color-mix(in srgb, var(--accent) 88%, #fff); display: block; }
+  .hero .lead { margin-top: 22px; font-size: 18px; line-height: 1.8; color: var(--chalk-dim); max-width: 34em; }
+  .hero .lead b { color: var(--chalk); font-weight: 600; }
+  .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; margin-top: 34px; }
+  .meta { margin-top: 16px; font-size: 13.5px; color: var(--chalk-dim); }
+  .dl-status { margin-top: 10px; min-height: 1.5em; font-size: 14px; font-weight: 600; color: color-mix(in srgb, var(--accent) 80%, #fff); }
+  .dl-status.err { color: #ffb4a8; }
+
+  /* 첫 화면 오른쪽: 실제 앱의 자유토론 칠판(체스 시계) 재현 */
+  .board { position: relative; background: var(--board-deep); border: 10px solid var(--wood); border-radius: 18px; padding: 18px 18px 16px; box-shadow: 0 24px 48px rgba(0, 0, 0, .35), inset 0 0 60px rgba(0, 0, 0, .35); }
+  .board-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-family: var(--f-chalk); font-size: 25px; color: var(--chalk); line-height: 1.2; }
+  .board-top small { font-family: var(--f-body); font-size: 12px; color: var(--chalk-dim); letter-spacing: .04em; }
+  .topic { margin-top: 10px; background: color-mix(in srgb, var(--chalk) 9%, transparent); border: 1px dashed rgba(238, 244, 236, .25); border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600; color: var(--chalk); }
+  .clocks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .clock { border-radius: 12px; padding: 10px 12px; background: rgba(0, 0, 0, .22); border: 2px solid transparent; }
+  .clock .who { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--chalk-dim); }
+  .clock .who i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .clock .t { font: 600 34px/1.1 var(--f-mono); font-variant-numeric: tabular-nums; color: var(--chalk); margin-top: 4px; }
+  .clock.pro .who i { background: var(--pro); } .clock.con .who i { background: var(--con); }
+  .clock.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, rgba(0, 0, 0, .2)); }
+  .clock.on .who { color: var(--chalk); }
+  .turn { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--chalk-dim); }
+  .turn .bar { flex: 1; height: 7px; border-radius: 99px; background: rgba(238, 244, 236, .14); overflow: hidden; }
+  .turn .bar span { display: block; height: 100%; width: 92%; background: var(--accent); border-radius: inherit; transform-origin: left; }
+  .turn b { font-family: var(--f-mono); font-variant-numeric: tabular-nums; color: var(--chalk); font-size: 14px; }
+  .bubbles { display: grid; gap: 8px; margin-top: 14px; }
+  .bub { max-width: 88%; padding: 9px 12px; border-radius: 14px; font-size: 13.5px; line-height: 1.55; color: #1c1c1c; }
+  .bub .w { display: block; font-size: 11px; font-weight: 700; opacity: .7; margin-bottom: 2px; }
+  .bub.con { background: #ffffff; border-top-left-radius: 4px; }
+  .bub.pro { background: #ffe14d; justify-self: end; border-top-right-radius: 4px; }
+  .bub.typing { background: #ffe14d; justify-self: end; border-top-right-radius: 4px; display: inline-flex; gap: 5px; padding: 12px 14px; }
+  .bub.typing span { width: 6px; height: 6px; border-radius: 50%; background: #6b5600; animation: dot 1.2s infinite ease-in-out; }
+  .bub.typing span:nth-child(2) { animation-delay: .15s; } .bub.typing span:nth-child(3) { animation-delay: .3s; }
+  @keyframes dot { 0%, 80%, 100% { opacity: .3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+  .chalk-note { position: absolute; right: -6px; top: -26px; transform: rotate(4deg); font-family: var(--f-chalk); font-size: 22px; color: var(--accent-ink); background: #ffe7a3; padding: 2px 12px 4px; border-radius: 4px; box-shadow: 0 6px 14px rgba(0, 0, 0, .25); }
+
+  @media (max-width: 880px) {
+    .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 52px; padding-block: 44px 70px; }
+    .board { max-width: 520px; }
+  }
+
+  /* ── 본문 공통 ── */
+  section { padding-block: 84px; }
+  .sec-head { max-width: 40em; }
+  .sec-head h2 { font-family: var(--f-display); font-weight: 400; font-size: clamp(28px, 4vw, 40px); line-height: 1.25; margin-top: 10px; }
+  .sec-head p { margin-top: 14px; color: var(--muted); font-size: 17px; }
+
+  /* 이런 적 있으시죠 → 이제는 */
+  .pains { margin-top: 40px; display: grid; gap: 14px; }
+  .pain { display: grid; grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr); align-items: stretch; gap: 0; }
+  .pain > div { padding: 18px 20px; min-width: 0; }
+  .pain .before { background: color-mix(in srgb, var(--card) 60%, transparent); border: 1px solid var(--rule); border-right: 0; border-radius: 14px 0 0 14px; color: var(--muted); }
+  .pain .before b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 2px; }
+  .pain .arrow { display: grid; place-items: center; background: var(--board); color: var(--chalk); font-weight: 700; }
+  .pain .after { background: var(--card); border: 2px solid var(--board); border-left: 0; border-radius: 0 14px 14px 0; }
+  .pain .after b { display: block; font-weight: 700; margin-bottom: 2px; }
+  .pain .after span { color: var(--muted); }
+  .label-row { display: grid; grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr); font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--muted); padding: 0 4px; }
+  .label-row span:last-child { color: var(--ok); }
+  @media (max-width: 680px) {
+    .label-row { display: none; }
+    .pain { grid-template-columns: minmax(0, 1fr); }
+    .pain .before { border: 1px solid var(--rule); border-bottom: 0; border-radius: 14px 14px 0 0; }
+    .pain .arrow { padding: 4px; font-size: 13px; }
+    .pain .arrow::after { content: " 이제는"; }
+    .pain .after { border: 2px solid var(--board); border-top: 0; border-radius: 0 0 14px 14px; }
+  }
+
+  /* 수업 흐름 (실제 순서와 시간) */
+  .flow-sec { background: var(--card); border-block: 1px solid var(--rule); }
+  .flow { list-style: none; padding: 0; margin: 44px 0 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; counter-reset: st; position: relative; }
+  .flow::before { content: ""; position: absolute; left: 10%; right: 10%; top: 23px; height: 2px; background: repeating-linear-gradient(90deg, var(--rule) 0 8px, transparent 8px 14px); }
+  .flow li { position: relative; padding: 0 10px; text-align: center; counter-increment: st; min-width: 0; }
+  .flow li::before { content: counter(st); display: grid; place-items: center; width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 50%; background: var(--board); color: var(--chalk); font: 400 22px/1 var(--f-display); position: relative; }
+  .flow li.hot::before { background: var(--accent); color: var(--accent-ink); }
+  .flow h3 { font-size: 16.5px; font-weight: 700; }
+  .flow .time { display: inline-block; margin-top: 6px; font: 600 13px/1 var(--f-mono); font-variant-numeric: tabular-nums; background: var(--paper); border: 1px solid var(--rule); padding: 5px 9px; border-radius: 99px; }
+  .flow p { margin-top: 8px; font-size: 14px; color: var(--muted); line-height: 1.6; }
+  @media (max-width: 820px) {
+    .flow { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+    .flow::before { left: 22px; right: auto; top: 10px; bottom: 10px; width: 2px; height: auto; background: repeating-linear-gradient(180deg, var(--rule) 0 8px, transparent 8px 14px); }
+    .flow li { display: grid; grid-template-columns: 46px minmax(0, 1fr); column-gap: 16px; text-align: left; padding: 0; }
+    .flow li::before { margin: 0; grid-row: span 3; }
+    .flow .time { justify-self: start; }
+  }
+
+  /* 기능 */
+  .feats { margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); }
+  .feat { padding: 26px 22px 28px 0; border-bottom: 1px solid var(--rule); min-width: 0; }
+  .feat:nth-child(3n+2), .feat:nth-child(3n) { padding-left: 22px; border-left: 1px solid var(--rule); }
+  .feat .tag { font: 600 12px/1 var(--f-mono); color: var(--muted); letter-spacing: .04em; }
+  .feat h3 { font-size: 19px; font-weight: 700; margin-top: 10px; }
+  .feat p { margin-top: 8px; color: var(--muted); font-size: 15px; }
+  .feat .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { font-size: 12.5px; font-weight: 600; padding: 3px 9px; border-radius: 99px; background: var(--paper); border: 1px solid var(--rule); }
+  .chip.pro { background: var(--pro-soft); border-color: transparent; color: var(--pro); } .chip.con { background: var(--con-soft); border-color: transparent; color: var(--con); }
+  @media (max-width: 860px) { .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .feat:nth-child(n) { padding-left: 0; border-left: 0; padding-right: 18px; } .feat:nth-child(2n) { padding-left: 18px; border-left: 1px solid var(--rule); } }
+  @media (max-width: 560px) { .feats { grid-template-columns: minmax(0, 1fr); } .feat:nth-child(n) { padding: 22px 0; border-left: 0; } }
+
+  /* 실제 화면 */
+  .shots { margin-top: 44px; display: grid; grid-template-columns: minmax(0, 2.15fr) minmax(0, .85fr); gap: 20px; align-items: start; }
+  figure { margin: 0; min-width: 0; }
+  figure img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--rule); background: var(--card); box-shadow: 0 10px 26px rgba(20, 40, 33, .10); }
+  figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); }
+  figcaption b { color: var(--ink); font-weight: 600; }
+  .shot-teacher { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 28px; align-items: center; margin-top: 14px; }
+  .shot-teacher .txt h3 { font-size: 22px; font-weight: 700; }
+  .shot-teacher .txt p { margin-top: 10px; color: var(--muted); }
+  @media (max-width: 760px) { .shots, .shot-teacher { grid-template-columns: minmax(0, 1fr); } .shot-phone { max-width: 300px; } }
+
+  /* 개인정보 */
+  .privacy { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 40px; align-items: start; }
+  .where { display: grid; gap: 10px; }
+  .where div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; padding: 16px 18px; background: var(--card); border: 1px solid var(--rule); border-radius: 12px; }
+  .where dt { font-weight: 700; } .where dd { margin: 0; color: var(--muted); font-size: 15px; }
+  .where div.local { border: 2px solid var(--ok); } .where div.local dt { color: var(--ok); }
+  @media (max-width: 760px) { .privacy { grid-template-columns: minmax(0, 1fr); } .where div { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+
+  /* 시작하기 */
+  .start-sec { background: var(--board); color: var(--chalk); }
+  .start-sec .eyebrow { color: color-mix(in srgb, var(--accent) 85%, #fff); }
+  .start-sec .sec-head p { color: var(--chalk-dim); }
+  .steps { list-style: none; padding: 0; margin: 44px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: s; }
+  .steps li { counter-increment: s; background: rgba(0, 0, 0, .2); border: 1px solid rgba(238, 244, 236, .12); border-radius: 14px; padding: 22px; min-width: 0; }
+  .steps li::before { content: counter(s); font: 400 30px/1 var(--f-display); color: color-mix(in srgb, var(--accent) 88%, #fff); }
+  .steps h3 { font-size: 18px; font-weight: 700; margin-top: 10px; }
+  .steps p { margin-top: 8px; color: var(--chalk-dim); font-size: 15px; }
+  code, .file { font-family: var(--f-mono); font-size: .9em; background: rgba(0, 0, 0, .26); color: var(--chalk); padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+  .start-cta { margin-top: 36px; display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+  .start-cta .meta { margin: 0; }
+  .need { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--chalk-dim); }
+  .need span::before { content: "✓ "; color: color-mix(in srgb, var(--accent) 85%, #fff); font-weight: 700; }
+  @media (max-width: 820px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+
+  /* 자주 묻는 질문 */
+  .faq { margin-top: 36px; display: grid; gap: 10px; max-width: 820px; }
+  .faq details { background: var(--card); border: 1px solid var(--rule); border-radius: 12px; padding: 4px 20px; }
+  .faq summary { cursor: pointer; list-style: none; font-weight: 700; padding: 14px 0; display: flex; justify-content: space-between; gap: 12px; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; font: 600 20px/1 var(--f-mono); color: var(--muted); }
+  .faq details[open] summary::after { content: "–"; }
+  .faq details p { padding: 0 0 16px; color: var(--muted); font-size: 15.5px; }
+
+  /* 바닥 */
+  footer { border-top: 1px solid var(--rule); background: var(--card); }
+  footer .wrap { padding-block: 30px calc(30px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; font-size: 14px; color: var(--muted); }
+  .maker { display: inline-grid; grid-template-columns: auto auto; column-gap: 6px; line-height: 1.6; }
+  .maker b { color: var(--ink); }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
+  html { scroll-behavior: smooth; }
+  [id] { scroll-margin-top: 80px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="img/icon.png" alt="">우리교실, 토론앱</a>
+    <nav class="nav" aria-label="페이지 안내">
+      <a href="#features">무엇을 해 주나요</a>
+      <a href="#flow">수업 흐름</a>
+      <a href="#screens">실제 화면</a>
+      <a href="#start">시작하기</a>
+      <a href="#faq">자주 묻는 질문</a>
+    </nav>
+    <a class="btn btn-sm js-dl" href="downloads/woori-debate-app-windows.zip" download="우리교실_토론앱.zip" id="dl-top">내려받기</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="hero-title" style="padding-block:0">
+    <div class="wrap">
+      <div>
+        <span class="eyebrow">교실 토론 수업을 처음부터 끝까지</span>
+        <h1 id="hero-title"><span class="ln">토론 수업 기록,</span> <span class="ln">힘드셨죠?</span><span class="hl"><span class="ln">배정부터 생기부까지,</span> <span class="ln">한 번에.</span></span></h1>
+        <p class="lead">누가 무슨 말을 했는지 받아 적느라 정작 토론을 못 본 적, 있으시죠. <b>우리교실, 토론앱</b>은 <b>팀 랜덤 배정</b>, <b>단계별 진행과 체스 시계</b>, <b>토론 기록 자동 저장</b>, <b>AI 피드백</b>, <b>생기부 초안 안내</b>까지 맡아요. 선생님은 토론만 지켜보시면 돼요.</p>
+        <div class="cta-row">
+          <a class="btn js-dl" href="downloads/woori-debate-app-windows.zip" download="우리교실_토론앱.zip" id="dl-hero">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>
+            Windows용 내려받기
+          </a>
+          <a class="link-under" href="#start">사용 방법 먼저 보기 ↓</a>
+        </div>
+        <p class="meta">Windows 10·11 · ZIP 2.8 MB · 학생은 휴대폰 브라우저만 · AI 키는 선택(본인 키 사용)</p>
+        
+      </div>
+
+      <div class="board" aria-label="자유토론 화면 예시: 찬성팀 차례, 체스 시계 찬성 6분 20초, 반대 9분">
+        <span class="chalk-note">턴당 3분 · 팀당 9분</span>
+        <div class="board-top">③ 자유토론 <small>1조 연구실</small></div>
+        <div class="topic">토론 주제 : 학교 내 스마트폰 사용을 전면 허용해야 한다</div>
+        <div class="clocks">
+          <div class="clock pro on"><div class="who"><i></i>찬성팀 · 지금 차례</div><div class="t" id="clk-pro">06:20</div></div>
+          <div class="clock con"><div class="who"><i></i>반대팀</div><div class="t">09:00</div></div>
+        </div>
+        <div class="turn">이번 턴 <div class="bar"><span id="turn-bar"></span></div><b id="turn-t">02:46</b></div>
+        <div class="bubbles">
+          <div class="bub con"><span class="w">반대팀 · 펭귄</span>알림을 꺼도 스스로 확인하는 습관이 문제입니다. 학생의 64%가 수업 중 스스로 휴대폰을 확인한다고 답했어요.</div>
+          <div class="bub pro"><span class="w">찬성팀 · 너구리</span>그렇다면 전면 금지보다 수업 규칙을 정해 쓰는 쪽이 더 현실적이지 않을까요?</div>
+          <div class="bub typing" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="pain-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">이런 적 있으시죠</span>
+        <h2 id="pain-title">토론 수업이 힘든 건 토론보다 그 주변 일 때문이에요</h2>
+        <p>팀 짜기, 시간 재기, 받아 적기, 생기부 쓰기. 선생님이 혼자 하던 일을 앱이 나눠 맡아요.</p>
+      </div>
+      <div class="pains">
+        <div class="label-row" aria-hidden="true"><span>지금까지는</span><span></span><span>우리교실, 토론앱에서는</span></div>
+        <div class="pain"><div class="before"><b>팀 짜는 데만 10분</b>누가 누구랑 붙을지 정하다 수업 시간이 흘러가요.</div><div class="arrow" aria-hidden="true">→</div><div class="after"><b>체크박스 하나로 찬반 랜덤 배정</b><span>학생이 고른 찬성·반대는 그대로 두고 상대 조만 섞어요. 원래 짝은 되도록 다시 안 만나요.</span></div></div>
+        <div class="pain"><div class="before"><b>시간 재고 순서 부르느라 바빠요</b>한 팀이 말을 오래 끌면 다른 팀 시간이 줄어요.</div><div class="arrow" aria-hidden="true">→</div><div class="after"><b>단계별 타이머와 체스 시계</b><span>자유토론은 턴당 3분, 팀당 9분. 자기 차례에만 시계가 줄어서 모든 팀이 공정해요.</span></div></div>
+        <div class="pain"><div class="before"><b>받아 적다 정작 토론을 못 봐요</b>누가 어떤 근거를 냈는지 끝나면 기억이 흐려져요.</div><div class="arrow" aria-hidden="true">→</div><div class="after"><b>모든 발언이 자동으로 기록돼요</b><span>학생이 휴대폰으로 쓴 주장·반박·결론이 그대로 남고, 조별 PDF로 내려받을 수 있어요.</span></div></div>
+        <div class="pain"><div class="before"><b>생기부 쓸 때 근거가 없어요</b>몇 주 뒤에 쓰려니 학생별 활동이 떠오르지 않아요.</div><div class="arrow" aria-hidden="true">→</div><div class="after"><b>학생별 발언 기반 생기부 초안</b><span>각 학생이 직접 쓴 발언만 근거로 400바이트 안쪽 초안을 만들어 엑셀로 드려요. 검토·수정은 선생님 몫이에요.</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="flow-sec" id="flow" aria-labelledby="flow-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">수업 흐름</span>
+        <h2 id="flow-title">한 차시 안에 주장부터 시상식까지</h2>
+        <p>모든 조가 같은 순서로 움직이고, 단계마다 시간이 정해져 있어 어느 조도 무한정 늘어지지 않아요. 아래는 기본 시간이고, 수업 세팅에서 단계별로 바꿀 수 있어요(자유토론은 절반씩 팀별 시계, 턴당 3분은 그대로).</p>
+      </div>
+      <ol class="flow">
+        <li><h3>최초 주장 펼치기</h3><span class="time">5분 +1분</span><p>찬성·반대가 동시에 핵심 주장·근거·출처를 써요.</p></li>
+        <li><h3>최초 주장 읽기</h3><span class="time">3분</span><p>찬성 VS 반대 두 노트를 나란히 놓고 비교해요.</p></li>
+        <li class="hot"><h3>자유토론</h3><span class="time">18분</span><p>체스 시계로 번갈아 반박해요. 턴당 3분, 팀당 9분.</p></li>
+        <li><h3>자기 단련의 시간</h3><span class="time">10분 +1분×2</span><p>최종 결론과 자기 피드백을 한 화면에서 정리해요.</p></li>
+        <li><h3>피드백 · 투표 · 시상식</h3><span class="time">약 3분</span><p>AI 피드백을 읽고 다른 조 결론을 구경한 뒤 따봉 투표로 1위를 뽑아요.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="features" aria-labelledby="feat-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">무엇을 해 주나요</span>
+        <h2 id="feat-title">배정 · 진행 · 기록 · 피드백 · 생기부</h2>
+        <p>선생님 컴퓨터 한 대에서 실행하고, 학생은 휴대폰이나 태블릿 브라우저로 들어와요. 학생 기기에 설치할 것은 없어요.</p>
+      </div>
+      <div class="feats">
+        <div class="feat"><span class="tag">배정</span><h3>찬반 팀 랜덤 배정</h3><p>학생이 고른 조대로 하거나, 체크 한 번으로 상대 조만 무작위로 섞어요.</p><div class="chips"><span class="chip pro">찬성 3명</span><span class="chip con">반대 3명</span><span class="chip">1~10개 조</span></div></div>
+        <div class="feat"><span class="tag">진행</span><h3>단계별 자동 진행</h3><p>시간이 지나면 경고 후 다음 단계로 넘어가요. 선생님은 조별 진행 상황을 한 화면에서 봐요.</p><div class="chips"><span class="chip">체스 시계</span><span class="chip">상대 차례에도 미리 쓰기</span></div></div>
+        <div class="feat"><span class="tag">기록</span><h3>토론 기록 자동 저장</h3><p>모든 발언이 작성자와 함께 남아요. 조별 PDF, 전체 CSV로 내려받고 반별로 보관해요.</p><div class="chips"><span class="chip">조별 PDF</span><span class="chip">반별 보관</span></div></div>
+        <div class="feat"><span class="tag">피드백</span><h3>AI 팀 피드백과 토론 1등 팀</h3><p>5가지 기준(주장 명확성·근거 제시·논리적 설명·반론 대응·소통)으로 팀마다 잘한 점과 아쉬운 점을 알려줘요.</p><div class="chips"><span class="chip">잘한 점 1개</span><span class="chip">개선점 1개</span></div></div>
+        <div class="feat"><span class="tag">생기부</span><h3>학생별 생기부 초안</h3><p>학생이 '작성자'로 남긴 발언만 근거로 세특 문체 초안을 만들어 엑셀로 드려요. 끌 수도 있어요.</p><div class="chips"><span class="chip">400바이트 이내</span><span class="chip">엑셀</span></div></div>
+        <div class="feat"><span class="tag">참여</span><h3>휴대폰으로 바로 참여</h3><p>같은 와이파이는 물론, 인터넷 모드면 짧은 주소와 4자리 접속 코드로 어디서나 들어와요.</p><div class="chips"><span class="chip">짧은 주소</span><span class="chip">따봉 투표 · 시상식</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screens" aria-labelledby="screens-title" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">실제 화면</span>
+        <h2 id="screens-title">학생은 교실 같은 화면에서, 선생님은 한눈에</h2>
+      </div>
+      <div class="shots">
+        <figure><img src="img/student-pc.webp" width="1366" height="768" alt="학생 화면(PC): 교실 배경의 칠판에서 찬성팀과 반대팀이 번갈아 쓰는 자유토론, 위에 체스 시계와 이번 턴 남은 시간" loading="lazy"><figcaption><b>학생 화면 · PC</b> 칠판에 발언이 쌓이고, 내 차례·남은 시간이 위에 크게 보여요.</figcaption></figure>
+        <figure class="shot-phone"><img src="img/student-phone.webp" width="520" height="885" alt="학생 화면(휴대폰): 대화 칠판이 화면을 채우고 아래에 입력칸과 전송 버튼" loading="lazy"><figcaption><b>학생 화면 · 휴대폰</b> 대화와 입력칸이 화면을 꽉 채워요.</figcaption></figure>
+        <div class="shot-teacher">
+          <div class="txt"><span class="eyebrow">교사 화면</span><h3>토론이 끝나면 조별 피드백과 1등 팀이 바로</h3><p>모든 조·팀의 잘한 점, 아쉬운 점, 5가지 기준 결과가 한 화면에 모여요. 오늘의 토론 1등 팀은 이유와 함께 나와요.</p></div>
+          <figure><img src="img/teacher-feedback.webp" width="812" height="633" alt="교사 화면: 오늘의 토론 1등 팀과 이유, 조별로 찬성팀·반대팀의 잘한 점과 아쉬운 점, 5가지 기준 결과" loading="lazy"></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="flow-sec" aria-labelledby="privacy-title">
+    <div class="wrap privacy">
+      <div class="sec-head">
+        <span class="eyebrow">개인정보</span>
+        <h2 id="privacy-title">학생 학번·이름은 선생님 컴퓨터 밖으로 나가지 않아요</h2>
+        <p>웹 서비스가 아니라 선생님 컴퓨터에서 돌아가는 프로그램이에요. 처음 켤 때 무엇이 어디에 저장되는지 안내하고 동의를 받아요.</p>
+      </div>
+      <dl class="where">
+        <div class="local"><dt>이 컴퓨터에만</dt><dd>학번·이름·닉네임, 토론 기록, 생기부 초안, AI 키. 제작자도 볼 수 없어요.</dd></div>
+        <div><dt>AI로 가는 것</dt><dd>피드백·생기부를 만들 때 닉네임과 발언 내용만 보내요. 발언 속 실명·학번은 보내기 전에 닉네임으로 바꿔요.</dd></div>
+        <div><dt>인터넷 모드</dt><dd>학번·이름은 학생 기기에서 암호화해서 보내고, 풀 수 있는 열쇠는 선생님 컴퓨터에만 있어요. 명단을 미리 등록하면 학생은 닉네임만 입력해요.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="start-sec" id="start" aria-labelledby="start-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">시작하기</span>
+        <h2 id="start-title">내려받고, 두 번 누르면 끝</h2>
+        <p>처음 한 번만 필요한 부품을 스스로 내려받아 설치해요. 그다음부터는 바탕화면의 바로가기로 바로 켜져요.</p>
+      </div>
+      <ol class="steps">
+        <li><h3>ZIP 내려받아 압축 풀기</h3><p>원하는 폴더에 압축을 풀어요. 바탕화면이나 문서 폴더 어디든 괜찮아요.</p></li>
+        <li><h3><span class="file">토론앱_시작.bat</span> 더블클릭</h3><p>처음엔 부품 설치로 1~2분 걸려요. 파이썬이 없으면 설치 방법을 안내해요. 바탕화면에 '토론 수업 앱' 바로가기가 생겨요.</p></li>
+        <li><h3>교사 화면에서 수업 세팅</h3><p>조 수와 토론 주제를 정하고, 화면에 뜬 주소(인터넷 모드는 짧은 주소+접속 코드)를 학생에게 알려 주면 시작이에요.</p></li>
+      </ol>
+      <div class="start-cta">
+        <a class="btn js-dl" href="downloads/woori-debate-app-windows.zip" download="우리교실_토론앱.zip" id="dl-start">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>
+          Windows용 내려받기
+        </a>
+        <p class="meta">우리교실_토론앱.zip · 2.8 MB</p>
+      </div>
+      
+      <div class="need" aria-label="준비물">
+        <span>Windows 10·11 컴퓨터 한 대</span>
+        <span>Python 3.8 이상 (없으면 설치 안내)</span>
+        <span>처음 실행할 때 인터넷</span>
+        <span>학생 휴대폰·태블릿·크롬북</span>
+        <span>AI 기능은 Gemini 등 본인 API 키 (선택)</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">자주 묻는 질문</span>
+        <h2 id="faq-title">궁금한 점</h2>
+      </div>
+      <div class="faq">
+        <details><summary>AI 키가 없어도 쓸 수 있나요?</summary><p>네. 팀 배정, 진행, 체스 시계, 토론 기록, PDF, 따봉 투표·시상식은 AI 없이 모두 돼요. AI 키를 넣으면 팀별 피드백과 생기부 초안이 더해져요. 키가 없으면 그 칸에 "API 미연결로 피드백 화면을 생성할 수 없어요"라고 안내해요.</p></details>
+        <details><summary>학생이 같은 와이파이에 있어야 하나요?</summary><p>두 가지 방식이 있어요. <code>토론앱_같은와이파이.bat</code>은 같은 와이파이에서, <code>토론앱_시작.bat</code>(인터넷 모드)은 학생이 데이터나 다른 와이파이를 써도 짧은 주소와 접속 코드로 들어올 수 있어요.</p></details>
+        <details><summary>몇 명까지 함께 쓸 수 있나요?</summary><p>한 수업에 1~10개 조, 조마다 찬성팀·반대팀이 한 팀씩이에요. 조 수는 수업 시작 전에 교사 화면에서 정해요.</p></details>
+        <details><summary>맥이나 크롬북에서도 되나요?</summary><p>선생님 컴퓨터(앱을 켜는 컴퓨터)는 Windows용이에요. 학생은 휴대폰, 태블릿, 크롬북, 맥 등 브라우저가 있는 기기면 어디서든 들어와요.</p></details>
+        <details><summary>수업 기록은 어디에 남나요?</summary><p>압축을 푼 폴더 안에 저장돼요. 반마다 보관해 두었다가 수업이 끝난 뒤 언제든 조별 PDF, 조별 피드백 엑셀, 생기부 엑셀을 만들 수 있어요.</p></details>
+        <details><summary>생기부 문장을 그대로 써도 되나요?</summary><p>아니요. 학생이 직접 쓴 발언만 근거로 만든 초안이에요. 반드시 선생님이 검토·수정한 뒤 사용해 주세요.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="maker"><b>제작자:</b><span>최문주 @우주정거장 (충청남도교육청 소속 교사)<br>© 2026. All rights reserved.</span></div>
+    <span>우리교실, 토론앱 · Windows용</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // 첫 화면 칠판: 찬성팀 시계가 실제처럼 1초씩 줄어듦 (턴 3분 = 180초)
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const clk = document.getElementById("clk-pro"), tt = document.getElementById("turn-t"), bar = document.getElementById("turn-bar");
+  let bank = 380, turn = 166;
+  const fmt = s => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  const draw = () => { clk.textContent = fmt(bank); tt.textContent = fmt(turn); bar.style.width = (turn / 180 * 100).toFixed(1) + "%"; };
+  draw();
+  if (!reduce) setInterval(() => { bank = bank > 200 ? bank - 1 : 380; turn = turn > 20 ? turn - 1 : 166; draw(); }, 1000);
+})();
+</script>
+</body>
+</html>
