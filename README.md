@@ -10,4 +10,4 @@ downloads/woori-debate-app-windows.zip   배포용 앱 (Windows)
 ```
 
 ## 앱을 새 버전으로 바꿀 때
-`downloads/woori-debate-app-windows.zip` 파일만 같은 이름으로 바꿔 올리면 됩니다. 파일 크기가 크게 바뀌면 `index.html`의 "ZIP 2.8 MB" 문구도 고쳐 주세요.
+`downloads/woori-debate-app-windows.zip` 파일만 같은 이름으로 바꿔 올리면 됩니다. 파일 크기가 크게 바뀌면 `index.html`의 "ZIP 2.9 MB" 문구도 고쳐 주세요.
